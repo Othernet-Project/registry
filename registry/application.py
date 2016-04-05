@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-app.py: main module
+application.py: defines Application class
 
 Copyright 2014-2016, Outernet Inc.
 Some rights reserved.
@@ -75,8 +75,8 @@ class Application(object):
         for route in routing:
             route = self._import(route)
             for r in route(self.config):
-                path, method, cb, name, kw = r
-                self.app.route(path, method, cb, name=name, **kw)
+                (name, handler, method, path, kwargs) = r
+                self.app.route(path, method, handler, name=name, **kwargs)
 
     def add_background(self, background_calls):
         for hook in background_calls:
