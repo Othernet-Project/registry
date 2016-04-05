@@ -16,6 +16,5 @@ from .api import list_files
 
 def routes(config):
     return (
-        ('registry:list', list_files,
-        'GET', '/registry/', {}),
+        ('registry:list', list_files, 'GET', '/', {}),
     )

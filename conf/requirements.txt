@@ -1,3 +1,5 @@
 bottle
 confloader>=1.0
 gevent
+sqlize
+squery-lite
