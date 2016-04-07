@@ -64,7 +64,7 @@ class Application(object):
     def pre_init(self, pre_init):
         for hook in pre_init:
             hook = self._import(hook)
-            hook(self.config)
+            hook(self.app, self.config)
 
     def add_plugins(self, plugins):
         for plugin in plugins:

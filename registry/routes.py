@@ -11,10 +11,18 @@ file that comes with the source code, or http://www.gnu.org/licenses/gpl.txt.
 
 from __future__ import unicode_literals
 
-from .api import list_files
+from .api import (add_file,
+                  list_files,
+                  get_file,
+                  update_file,
+                  delete_file)
 
 
 def routes(config):
     return (
         ('registry:list', list_files, 'GET', '/', {}),
+        ('registry:add', add_file, 'POST', '/', {}),
+        ('registry:get', get_file, 'GET', '/<id>', {}),
+        ('registry:update', update_file, 'PUT', '/<id>', {}),
+        ('registry:delete', delete_file, 'DELETE', '/<id>', {})
     )

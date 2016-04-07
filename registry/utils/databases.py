@@ -84,7 +84,11 @@ def init_databases(config):
     return databases
 
 
-def pre_init(config):
+def row_to_dict(row):
+    return {col: row[col] for col in row.keys()}
+
+
+def pre_init(app, config):
     logging.info('Connecting to databases')
     databases = init_databases(config)
     config['database.connections'] = databases
