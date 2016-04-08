@@ -92,8 +92,8 @@ def update_file(id):
 def delete_file(id):
     content_mgr = get_manager()
     try:
-        result = content_mgr.delete_file(id)
-        return {'success': True, 'results': [result]}
+        content_mgr.delete_file(id)
+        return {'success': True}
     except ContentException as exc:
         return {'success': False, 'error': str(exc)}
     except Exception as exc:

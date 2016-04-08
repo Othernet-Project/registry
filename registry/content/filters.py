@@ -32,18 +32,24 @@ class FilterBase(object):
 
     def apply(self, query, params=None):
         params = params or []
-        query.where &= self.condition()
-        new_params = self.params()
+        self.add_clause(query)
+        self.add_params(params)
+        return query, params
+
+    def add_clause(self, query):
+        query.where &= self.get_clause()
+
+    def add_params(self, params):
+        new_params = self.get_params()
         if is_seq(new_params):
             params.extend(new_params)
         else:
             params.append(new_params)
-        return query, params
 
-    def condition(self):
+    def get_clause(self):
         raise NotImplemented()
 
-    def params(self):
+    def get_params(self):
         raise NotImplemented()
 
     @classmethod
@@ -64,27 +70,27 @@ class FilterBase(object):
         return False
 
 
-class MultiValueFilterBase(FilterBase):
+class OneOrManyFilterBase(FilterBase):
 
     KEY = None
     single = None
     multi = None
 
     def __init__(self, **kwargs):
-        super(MultiValueFilterBase, self).__init__(**kwargs)
+        super(OneOrManyFilterBase, self).__init__(**kwargs)
         self.single_val = kwargs.get(self.single)
         self.multi_val = self.get_multi(kwargs.get(self.multi))
 
-    def condition(self):
+    def get_clause(self):
         if self.multi_val:
-            return sqlin(self.col(self.multi), self.multi_val)
+            return sqlin(self.get_col(self.multi), self.multi_val)
         else:
-            return '{} = ?'.format(self.col(self.single))
+            return '{} = ?'.format(self.get_col(self.single))
 
-    def params(self):
+    def get_params(self):
         return self.multi_val or self.single_val
 
-    def col(self, key):
+    def get_col(self, key):
         return self.KEY
 
     @classmethod
@@ -92,7 +98,7 @@ class MultiValueFilterBase(FilterBase):
         if isinstance(value, list):
             return value
         elif isinstance(value, basestring):
-            return value.split(',')
+            return [v.strip() for v in value.split(',')]
         return value
 
     @classmethod
@@ -100,25 +106,31 @@ class MultiValueFilterBase(FilterBase):
         return cls.single in kwargs or cls.multi in kwargs
 
 
-class PathFilter(MultiValueFilterBase):
+class PathFilter(OneOrManyFilterBase):
 
     KEY = 'path'
     single = 'path'
     multi = 'paths'
 
 
-class IdFilter(MultiValueFilterBase):
+class IdFilter(OneOrManyFilterBase):
 
     KEY = 'id'
     single = 'id'
     multi = 'ids'
 
 
-class ServePathFilter(MultiValueFilterBase):
+class ServePathFilter(OneOrManyFilterBase):
 
     KEY = 'serve_path'
     single = 'serve_path'
     multi = 'server_paths'
+
+
+class AliveFilter(OneOrManyFilterBase):
+
+    KEY = 'alive'
+    single = 'alive'
 
 
 def to_filters(func):

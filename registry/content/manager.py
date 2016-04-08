@@ -31,44 +31,53 @@ class ContentManager(object):
         self.db = db
 
     def exists(self, **kwargs):
-        content = self.get_file(**kwargs)
+        content = self.get_file(alive=True, **kwargs)
         return bool(content)
 
     def get_file(self, **kwargs):
         files = get_content(self.db, count=1, **kwargs)
         if files:
-            return files[0]
+            return self.process_entry(files[0])
 
     def list_files(self, filters=None):
-        filters = filters or self.default_filters()
-        return get_content(self.db, **filters)
+        actual_filters = self.default_filters()
+        actual_filters.update(filters)
+        return map(self.process_entry,
+                   get_content(self.db, **actual_filters))
 
     def add_file(self, path, params):
-        file_path = os.path.abspath(path)
-        if not file_path.startswith(self.root_path):
-            msg = ' {} does not fall under {} hierarchy.'.format(
-                file_path, self.root_path)
-            raise ContentException(msg)
         serve_path = params['serve_path']
         if self.exists(serve_path=serve_path):
             msg = 'File at serve_path {} already exists.'.format(serve_path)
             raise ContentException(msg)
-        if not os.path.isfile(path):
-            msg = 'No file at path {}'.format(path)
-            raise ContentException(msg)
-        return self._add_file(path, params)
+        self._validate_params(params)
+        id = self._add_file(path, params)
+        return self.get_file(id=id)
 
     def update_file(self, id, params):
         if not self.exists(id=id):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
         self._validate_params(params)
-        return self._update_file(id, params)
+        self._update_file(id, params)
+        return self.get_file(id=id)
+
+    def delete_file(self, id):
+        if not self.exists(id=id):
+            msg = 'File with id {} does not exist.'.format(id)
+            raise ContentException(msg)
+        self._delete_file(id)
+        return self.get_file(id=id)
+
+    def process_entry(self, data):
+        data['alive'] = bool(data['alive'])
+        return data
 
     def default_filters(self):
-        return {}
+        return {'alive': True}
 
     def _add_file(self, path, data):
+        data['alive'] = True
         data['uploaded'] = data['modified'] = time.time()
         data['size'] = os.path.getsize(path)
         logging.info('Adding new file {} with data: {}'.format(
@@ -98,4 +107,12 @@ class ContentManager(object):
             data['size'] = os.path.getsize(path)
         logging.info('Updating file with id {} with data: \n{}'.format(
             id, pprint.pformat(data)))
-        return update_content(self.db, data)
+        update_content(self.db, data)
+
+    def _delete_file(self, id):
+        data = {}
+        data['id'] = id
+        data['alive'] = False
+        data['modified'] = time.time()
+        logging.info('Setting file with id {} to dead'.format(id))
+        update_content(self.db, data)

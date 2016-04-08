@@ -16,18 +16,8 @@ from ..utils.databases import row_to_dict
 
 COLS = (
     'id', 'path', 'size', 'uploaded', 'modified', 'category', 'expiration',
-    'serve_path'
+    'serve_path', 'alive'
 )
-
-
-@to_filters
-def get_content(db, filters):
-    query = db.Select(sets='content', what='*')
-    params = []
-    for filt in filters:
-        query, params = filt.apply(query, params)
-    db.execute(query, params)
-    return [row_to_dict(row) for row in db.results]
 
 
 def process_content_data(data):
@@ -45,7 +35,7 @@ def get_max_id(db):
     if row and 'mid' in row:
         max_id = row['mid']
     if not max_id:
-        max_id = 1
+        max_id = 0
     print(max_id)
     return max_id
 
@@ -58,10 +48,14 @@ def strip_extra(data, valid_keys):
     return stripped_data
 
 
-def process_keywords(keywords):
-    if keywords:
-        return ','.join([kw.strip() for kw in keywords.split(',')])
-    return keywords
+@to_filters
+def get_content(db, filters):
+    query = db.Select(sets='content', what='*')
+    params = []
+    for filt in filters:
+        query, params = filt.apply(query, params)
+    db.execute(query, params)
+    return [row_to_dict(row) for row in db.results]
 
 
 def add_content(db, data):
@@ -69,7 +63,7 @@ def add_content(db, data):
     data['id'] = generate_id(db)
     query = db.Insert('content', cols=data.keys())
     db.execute(query, data)
-    return data
+    return data['id']
 
 
 def update_content(db, data):
@@ -77,4 +71,3 @@ def update_content(db, data):
     placeholders = {key: ':{}'.format(key) for key in data.keys()}
     query = db.Update('content', where='id=:id', **placeholders)
     db.execute(query, data)
-    return get_content(db, id=data['id'])
