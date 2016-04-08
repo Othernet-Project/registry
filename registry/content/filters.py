@@ -16,6 +16,15 @@ from squery_lite.squery import Database
 sqlin = Database.sqlin
 
 
+def is_seq(obj):
+    """ Returns True if object is not a string but is iterable """
+    if not hasattr(obj, '__iter__'):
+        return False
+    if isinstance(obj, basestring):
+        return False
+    return True
+
+
 class FilterBase(object):
 
     def __init__(self, **kwargs):
@@ -24,7 +33,11 @@ class FilterBase(object):
     def apply(self, query, params=None):
         params = params or []
         query.where &= self.condition()
-        params.append(self.params())
+        new_params = self.params()
+        if is_seq(new_params):
+            params.extend(new_params)
+        else:
+            params.append(new_params)
         return query, params
 
     def condition(self):
@@ -60,9 +73,7 @@ class MultiValueFilterBase(FilterBase):
     def __init__(self, **kwargs):
         super(MultiValueFilterBase, self).__init__(**kwargs)
         self.single_val = kwargs.get(self.single)
-        self.multi_val = kwargs.get(self.multi)
-        assert (self.multi_val or self.single_val), \
-            'Exactly one of'
+        self.multi_val = self.get_multi(kwargs.get(self.multi))
 
     def condition(self):
         if self.multi_val:
@@ -75,6 +86,14 @@ class MultiValueFilterBase(FilterBase):
 
     def col(self, key):
         return self.KEY
+
+    @classmethod
+    def get_multi(cls, value):
+        if isinstance(value, list):
+            return value
+        elif isinstance(value, basestring):
+            return value.split(',')
+        return value
 
     @classmethod
     def can_apply(cls, **kwargs):
