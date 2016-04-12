@@ -25,6 +25,13 @@ def is_seq(obj):
     return True
 
 
+def bool_to_int(obj):
+    if isinstance(obj, basestring):
+        return obj.lower() in ('true', 'yes', '1')
+    else:
+        return int(bool(obj))
+
+
 class FilterBase(object):
 
     def __init__(self, **kwargs):
@@ -131,6 +138,33 @@ class AliveFilter(OneOrManyFilterBase):
 
     KEY = 'alive'
     single = 'alive'
+
+    def get_params(self):
+        return bool_to_int(self.single_val)
+
+
+class SinceFilter(OneOrManyFilterBase):
+    KEY = 'modified'
+    single = 'since'
+
+    def get_clause(self):
+        return '{} >= ?'.format(self.get_col(self.single))
+
+
+class CountFilter(FilterBase):
+    KEY = 'count'
+
+    def __init__(self, **kwargs):
+        self.count = kwargs.get(self.KEY)
+
+    def apply(self, query, params=None):
+        params = params or []
+        query.limit = self.count
+        return query, params
+
+    @classmethod
+    def can_apply(cls, **kwargs):
+        return cls.KEY in kwargs
 
 
 def to_filters(func):

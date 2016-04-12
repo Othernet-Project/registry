@@ -24,7 +24,12 @@ class ContentException(Exception):
     pass
 
 
+MODIFY_TRIGGER_KEYS = ('path', 'size', 'category', 'expiration',
+                       'serve_path', 'alive')
+
+
 class ContentManager(object):
+    COUNT = 100
 
     def __init__(self, config, db):
         self.root_path = os.path.abspath(config['registry.root_path'])
@@ -42,6 +47,7 @@ class ContentManager(object):
     def list_files(self, filters=None):
         actual_filters = self.default_filters()
         actual_filters.update(filters)
+        actual_filters = self.process_filters(actual_filters)
         return map(self.process_entry,
                    get_content(self.db, **actual_filters))
 
@@ -73,8 +79,17 @@ class ContentManager(object):
         data['alive'] = bool(data['alive'])
         return data
 
+    def process_filter(self, filters):
+        if 'path' in filters or 'since' in filters:
+            # Remove count filter if `path` or `since` filter are applicable
+            try:
+                del filters['count']
+            except KeyError:
+                pass
+        return filters
+
     def default_filters(self):
-        return {'alive': True}
+        return {'count': self.COUNT}
 
     def _add_file(self, path, data):
         data['alive'] = True
@@ -101,10 +116,13 @@ class ContentManager(object):
 
     def _update_file(self, id, data):
         data['id'] = id
-        data['modified'] = time.time()
         if 'path' in data:
             path = data.get('path')
             data['size'] = os.path.getsize(path)
+        for key in MODIFY_TRIGGER_KEYS:
+            if key in data:
+                data['modified'] = time.time()
+                break
         logging.info('Updating file with id {} with data: \n{}'.format(
             id, pprint.pformat(data)))
         update_content(self.db, data)
