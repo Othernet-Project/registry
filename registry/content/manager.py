@@ -79,7 +79,7 @@ class ContentManager(object):
         data['alive'] = bool(data['alive'])
         return data
 
-    def process_filter(self, filters):
+    def process_filters(self, filters):
         if 'path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
