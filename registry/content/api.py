@@ -15,8 +15,8 @@ import os
 import logging
 
 from bottle import request, abort, static_file, HTTP_CODES
-from bottle_utils.html import urlunquote
 
+from ..utils.http import urldecode_params
 from .manager import ContentManager, ContentException
 
 
@@ -27,11 +27,6 @@ def get_manager():
     config = request.app.config
     db = request.db.registry
     return ContentManager(config=config, db=db)
-
-
-def urldecode_params(params=None):
-    params = params or {}
-    return {key: urlunquote(value) for key, value in params.items()}
 
 
 def list_files():
