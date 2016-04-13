@@ -17,7 +17,7 @@ import logging
 from bottle import request, abort, static_file, HTTP_CODES
 from bottle_utils.html import urlunquote
 
-from .content.manager import ContentManager, ContentException
+from .manager import ContentManager, ContentException
 
 
 ADD_FILE_REQ_PARAMS = ('path', 'serve_path')
