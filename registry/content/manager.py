@@ -24,10 +24,6 @@ class ContentException(Exception):
     pass
 
 
-MODIFY_TRIGGER_KEYS = ('path', 'size', 'category', 'expiration',
-                       'serve_path', 'alive')
-
-
 class ContentManager(object):
     """
     This class provides methods to query content database for their properties
@@ -36,6 +32,10 @@ class ContentManager(object):
 
     DEFAULT_LIST_COUNT = 100
     MAX_LIST_COUNT = 1000
+
+    VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive')
+    MODIFY_TRIGGERS = ('path', 'size', 'category', 'expiration',
+                           'serve_path', 'alive')
 
     def __init__(self, config, db):
         self.root_path = os.path.abspath(config['registry.root_path'])
@@ -46,7 +46,9 @@ class ContentManager(object):
         Returns true if there exists atleast one content entry which is active
         and satisfies the conditions specified by the keyword arguments.
         """
-        content = self.get_file(alive=True, **kwargs)
+        filters = kwargs
+        filters['alive'] = True
+        content = self.get_file(**filters)
         return bool(content)
 
     def get_file(self, **kwargs):
@@ -54,7 +56,10 @@ class ContentManager(object):
         Returns the first file entry which satisfies the conditions
         specified by the keyword arguments or None
         """
-        files = get_content(self.db, count=1, **kwargs)
+        filters = kwargs
+        filters['count'] = 1
+        self.validate_filters(filters)
+        files = get_content(self.db, **filters)
         if files:
             return self._process_entry(files[0])
 
@@ -66,7 +71,7 @@ class ContentManager(object):
         """
         filters = self.default_filters()
         filters.update(kwargs or {})
-        filters = self._validate_filters(filters)
+        filters = self.process_filters(filters)
         return map(self._process_entry,
                    get_content(self.db, **filters))
 
@@ -114,7 +119,7 @@ class ContentManager(object):
         data['alive'] = bool(data['alive'])
         return data
 
-    def _validate_filters(self, filters):
+    def process_filters(self, filters):
         if 'path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
@@ -157,7 +162,7 @@ class ContentManager(object):
         if 'path' in data:
             path = data.get('path')
             data['size'] = os.path.getsize(path)
-        for key in MODIFY_TRIGGER_KEYS:
+        for key in self.MODIFY_TRIGGERS:
             if key in data:
                 data['modified'] = time.time()
                 break
@@ -172,3 +177,18 @@ class ContentManager(object):
         data['modified'] = time.time()
         logging.info('Setting file with id {} to dead'.format(id))
         update_content(self.db, data)
+
+    def validate_filters(self, filters):
+        for key in filters.keys():
+            if key not in self.VALID_FILTERS:
+                raise ContentException('Invalid filter: {}'.format(key))
+
+    def split_valid_filters(self, filters):
+        valid = {}
+        invalid = {}
+        for key, value in filters.items():
+            if key in self.VALID_FILTERS:
+                valid[key] = value
+            else:
+                invalid[key] = value
+        return valid, invalid

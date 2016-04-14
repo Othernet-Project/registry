@@ -43,9 +43,14 @@ def check_params(params, required_params):
 
 def list_files():
     content_mgr = get_manager()
-    filters = urldecode_params(request.query)
-    files = content_mgr.list_files(filters)
-    return {'results': files}
+    params = urldecode_params(request.query)
+    valid_params, invalid_params = content_mgr.split_valid_filters(params)
+    if invalid_params:
+        params_str = ', '.join(['({} = {})'.format(k, v)
+                                for k, v in invalid_params.items()])
+        logging.debug('Ignoring unsupported parameters: {}'.format(params_str))
+    files = content_mgr.list_files(**valid_params)
+    return {'success': True, 'results': files, 'count': len(files)}
 
 
 def get_file(id):
