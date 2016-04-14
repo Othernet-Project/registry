@@ -20,9 +20,9 @@ from .api import (add_file,
 
 def routes(config):
     return (
-        ('registry:list', list_files, 'GET', '/', {}),
-        ('registry:add', add_file, 'POST', '/', {}),
-        ('registry:get', get_file, 'GET', '/<id>', {}),
-        ('registry:update', update_file, 'PUT', '/<id>', {}),
-        ('registry:delete', delete_file, 'DELETE', '/<id>', {})
+        ('content:list', list_files, 'GET', '/', {}),
+        ('content:add', add_file, 'POST', '/', {}),
+        ('content:get', get_file, 'GET', '/<id>', {}),
+        ('content:update', update_file, 'PUT', '/<id>', {}),
+        ('content:delete', delete_file, 'DELETE', '/<id>', {})
     )
