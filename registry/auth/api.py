@@ -13,14 +13,8 @@ import logging
 
 from bottle import request
 
-
-from .sessions import SessionManager, SessionException
-
-
-def get_session_manager():
-    config = request.app.config
-    db = request.db.registry
-    return SessionManager(config=config, db=db)
+from .utils import get_session_manager
+from .sessions import SessionException
 
 
 def start_handshake():

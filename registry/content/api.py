@@ -18,6 +18,7 @@ from bottle import request, abort, static_file, HTTP_CODES
 
 from ..utils.http import urldecode_params
 from .manager import ContentManager, ContentException
+from ..auth.utils import check_auth
 
 
 ADD_FILE_REQ_PARAMS = ('path', 'serve_path')
@@ -29,13 +30,6 @@ def get_manager():
     return ContentManager(config=config, db=db)
 
 
-def list_files():
-    content_mgr = get_manager()
-    filters = urldecode_params(request.query)
-    files = content_mgr.list_files(filters)
-    return {'results': files}
-
-
 def check_params(params, required_params):
     for p in required_params:
         val = params.get(p, None)
@@ -43,6 +37,15 @@ def check_params(params, required_params):
             abort(400, '`{}` must be specified'.format(p))
 
 
+@check_auth
+def list_files():
+    content_mgr = get_manager()
+    filters = urldecode_params(request.query)
+    files = content_mgr.list_files(filters)
+    return {'results': files}
+
+
+@check_auth
 def get_file(id):
     config = request.app.config
     item = get_manager().get_file(id=id)
@@ -56,6 +59,7 @@ def get_file(id):
         raise abort(404, HTTP_CODES[404])
 
 
+@check_auth
 def add_file():
     params = urldecode_params(request.forms)
     check_params(params, ADD_FILE_REQ_PARAMS)
@@ -71,6 +75,7 @@ def add_file():
         return {'success': False, 'error': 'Unknown Error'}
 
 
+@check_auth
 def update_file(id):
     params = urldecode_params(request.forms)
     content_mgr = get_manager()
@@ -84,6 +89,7 @@ def update_file(id):
         return {'success': False, 'error': 'Unknown Error'}
 
 
+@check_auth
 def delete_file(id):
     content_mgr = get_manager()
     try:

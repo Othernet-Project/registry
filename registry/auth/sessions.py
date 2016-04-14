@@ -146,8 +146,8 @@ class SessionManager(object):
         token = session['token']
         self.sessions[(client['name'], token)] = session
 
-    def load_session(self, client, token):
-        return self.sessions.get((client['name'], token))
+    def load_session(self, client_name, token):
+        return self.sessions.get((client_name, token))
 
     def generate_cid(self):
         return uuid.uuid4().hex
