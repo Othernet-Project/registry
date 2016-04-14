@@ -25,7 +25,7 @@ ADD_FILE_REQ_PARAMS = ('path', 'serve_path')
 
 def get_manager():
     config = request.app.config
-    db = request.db.content
+    db = request.db.registry
     return ContentManager(config=config, db=db)
 
 
