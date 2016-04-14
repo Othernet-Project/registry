@@ -33,7 +33,8 @@ class ContentManager(object):
     DEFAULT_LIST_COUNT = 100
     MAX_LIST_COUNT = 1000
 
-    VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive')
+    VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive',
+                     'aired')
     MODIFY_TRIGGERS = ('path', 'size', 'category', 'expiration',
                            'serve_path', 'alive')
 

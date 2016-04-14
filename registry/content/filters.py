@@ -182,6 +182,15 @@ class AliveFilter(OneOrManyFilterBase):
         return bool_to_int(self.single_val)
 
 
+class AiredFilter(OneOrManyFilterBase):
+
+    KEY = 'aired'
+    single = 'aired'
+
+    def get_params(self):
+        return bool_to_int(self.single_val)
+
+
 class SinceFilter(OneOrManyFilterBase):
     KEY = 'modified'
     single = 'since'
