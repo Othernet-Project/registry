@@ -29,29 +29,53 @@ MODIFY_TRIGGER_KEYS = ('path', 'size', 'category', 'expiration',
 
 
 class ContentManager(object):
-    COUNT = 100
+    """
+    This class provides methods to query content database for their properties
+    and methods to add, modify, delete those entries
+    """
+
+    DEFAULT_LIST_COUNT = 100
+    MAX_LIST_COUNT = 1000
 
     def __init__(self, config, db):
         self.root_path = os.path.abspath(config['registry.root_path'])
         self.db = db
 
     def exists(self, **kwargs):
+        """
+        Returns true if there exists atleast one content entry which is active
+        and satisfies the conditions specified by the keyword arguments.
+        """
         content = self.get_file(alive=True, **kwargs)
         return bool(content)
 
     def get_file(self, **kwargs):
+        """
+        Returns the first file entry which satisfies the conditions
+        specified by the keyword arguments or None
+        """
         files = get_content(self.db, count=1, **kwargs)
         if files:
-            return self.process_entry(files[0])
+            return self._process_entry(files[0])
 
-    def list_files(self, filters=None):
-        actual_filters = self.default_filters()
-        actual_filters.update(filters)
-        actual_filters = self.process_filters(actual_filters)
-        return map(self.process_entry,
-                   get_content(self.db, **actual_filters))
+    def list_files(self, **kwargs):
+        """
+        Returns a list of files which satisfy the conditions specified.
+        The list may be truncated to specific length if the number of files
+        are too large
+        """
+        filters = self.default_filters()
+        filters.update(kwargs or {})
+        filters = self._validate_filters(filters)
+        return map(self._process_entry,
+                   get_content(self.db, **filters))
 
     def add_file(self, path, params):
+        """
+        Adds a new file entry. A `ContentException` is raised if the entry
+        conflicts with an existing entry or if `params` do not contain valid
+        data. On successful addition, the new file entry is returned.
+        """
         serve_path = params['serve_path']
         if self.exists(serve_path=serve_path):
             msg = 'File at serve_path {} already exists.'.format(serve_path)
@@ -61,6 +85,12 @@ class ContentManager(object):
         return self.get_file(id=id)
 
     def update_file(self, id, params):
+        """
+        Updates a file entry with the specified `id`. A `ContentException` is
+        raised if the entry conflicts with an existing entry or no entry with
+        the specified `id` exists. On successful update, the updated file
+        entry is returned.
+        """
         if not self.exists(id=id):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
@@ -69,27 +99,35 @@ class ContentManager(object):
         return self.get_file(id=id)
 
     def delete_file(self, id):
+        """
+        Deactivates a file entry with the specified `id`. A `ContentException`
+        is raised if no such entry exists. On successful deactivation, the
+        updated file entry is returned.
+        """
         if not self.exists(id=id):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
         self._delete_file(id)
         return self.get_file(id=id)
 
-    def process_entry(self, data):
+    def _process_entry(self, data):
         data['alive'] = bool(data['alive'])
         return data
 
-    def process_filters(self, filters):
+    def _validate_filters(self, filters):
         if 'path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
                 del filters['count']
             except KeyError:
                 pass
+        # Ensure we never return move entries than `MAX_LIST_COUNT`
+        if 'count' in filters:
+            filters['count'] = min(filters['count'], self.MAX_LIST_COUNT)
         return filters
 
     def default_filters(self):
-        return {'count': self.COUNT}
+        return {'count': self.DEFAULT_LIST_COUNT}
 
     def _add_file(self, path, data):
         data['alive'] = True

@@ -14,8 +14,8 @@ from __future__ import unicode_literals
 import os
 import logging
 
-from bottle import request, abort, static_file, HTTP_CODES
 from bottle_utils.html import urlunquote
+from bottle import request, abort, static_file, HTTP_CODES
 
 from .manager import ContentManager, ContentException
 
@@ -34,18 +34,18 @@ def urldecode_params(params=None):
     return {key: urlunquote(value) for key, value in params.items()}
 
 
-def list_files():
-    content_mgr = get_manager()
-    filters = urldecode_params(request.query)
-    files = content_mgr.list_files(filters)
-    return {'results': files}
-
-
 def check_params(params, required_params):
     for p in required_params:
         val = params.get(p, None)
         if not val:
             abort(400, '`{}` must be specified'.format(p))
+
+
+def list_files():
+    content_mgr = get_manager()
+    filters = urldecode_params(request.query)
+    files = content_mgr.list_files(filters)
+    return {'results': files}
 
 
 def get_file(id):
