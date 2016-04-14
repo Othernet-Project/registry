@@ -36,7 +36,7 @@ class ContentManager(object):
     VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive',
                      'aired')
     MODIFY_TRIGGERS = ('path', 'size', 'category', 'expiration',
-                           'serve_path', 'alive')
+                       'serve_path', 'alive')
 
     def __init__(self, config, db):
         self.root_path = os.path.abspath(config['registry.root_path'])
