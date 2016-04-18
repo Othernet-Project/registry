@@ -40,12 +40,23 @@ def check_params(params, required_params):
 @check_auth
 def list_files():
     content_mgr = get_manager()
-    filters = urldecode_params(request.query)
-    files = content_mgr.list_files(filters)
-    return {'results': files}
+    params = urldecode_params(request.query)
+    valid_params, invalid_params = content_mgr.split_valid_filters(params)
+    if invalid_params:
+        params_str = ', '.join(['({} = {})'.format(k, v)
+                                for k, v in invalid_params.items()])
+        logging.debug('Ignoring unsupported parameters for list: {}'.format(
+            params_str))
+    try:
+        files = content_mgr.list_files(**valid_params)
+        return {'success': True, 'results': files, 'count': len(files)}
+    except ContentException as exc:
+        return {'success': False, 'error': str(exc)}
+    except Exception as exc:
+        logging.exception('Error while adding file: {}'.format(exc))
+        return {'success': False, 'error': 'Unknown Error'}
 
 
-@check_auth
 def get_file(id):
     config = request.app.config
     item = get_manager().get_file(id=id)

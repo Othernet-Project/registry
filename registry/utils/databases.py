@@ -1,3 +1,4 @@
+import re
 import os
 import logging
 import functools
@@ -36,16 +37,26 @@ def get_database_path(conf, name):
     return os.path.abspath(os.path.join(conf['database.path'], name + '.db'))
 
 
-def get_databases(database_cls, container_cls, db_confs, host, port, user,
-                  password, debug=False):
-    databases = dict((name,
-                      database_cls.connect(host=host,
-                                           port=port,
-                                           database=db_config['database'],
-                                           user=user,
-                                           password=password,
-                                           debug=debug))
-                     for name, db_config in db_confs.items())
+def patch_connection(backend, conn):
+    """
+    Adds database backend specific extra goodies
+    """
+    if backend == SQLITE_BACKEND:
+        conn.create_function('REGEXP', 2, regexp_operator)
+
+
+def get_databases(database_cls, container_cls, backend, db_confs, host, port,
+                  user, password, debug=False):
+    databases = {}
+    for name, db_config in db_confs.items():
+        conn = database_cls.connect(host=host,
+                                    port=port,
+                                    database=db_config['database'],
+                                    user=user,
+                                    password=password,
+                                    debug=debug)
+        patch_connection(backend, conn)
+        databases[name] = conn
     return container_cls(databases, debug=debug)
 
 
@@ -69,6 +80,7 @@ def init_databases(config):
     debug = config['server.debug']
     databases = get_databases(database_cls,
                               container_cls,
+                              config['database.backend'],
                               database_configs,
                               config['database.host'],
                               config['database.port'],
@@ -86,6 +98,14 @@ def init_databases(config):
 
 def row_to_dict(row):
     return {col: row[col] for col in row.keys()}
+
+
+def regexp_operator(expr, item):
+    try:
+        rx = re.compile(expr)
+        return rx.search(item) is not None
+    except Exception as e:
+        logging.exception('Error while using REGEXP operator: {}'.format(e))
 
 
 def pre_init(app, config):

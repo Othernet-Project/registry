@@ -36,7 +36,6 @@ def get_max_id(db):
         max_id = row['mid']
     if not max_id:
         max_id = 0
-    print(max_id)
     return max_id
 
 

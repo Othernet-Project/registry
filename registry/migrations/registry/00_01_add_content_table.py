@@ -10,6 +10,7 @@ CREATE TABLE content
     category varchar,                         -- used to determine type of content
     expiration timestamp,                     -- date when file is no longer relevant
     serve_path varchar not null,              -- path where file should be written to on the receiver
+    aired boolean default 0,                  -- whether the file has been aired
     alive boolean not null                    -- where the entry is valid or not
 );
 

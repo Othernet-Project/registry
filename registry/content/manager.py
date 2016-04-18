@@ -12,6 +12,7 @@ file that comes with the source code, or http://www.gnu.org/licenses/gpl.txt.
 from __future__ import unicode_literals
 
 
+import re
 import os
 import time
 import pprint
@@ -24,34 +25,64 @@ class ContentException(Exception):
     pass
 
 
-MODIFY_TRIGGER_KEYS = ('path', 'size', 'category', 'expiration',
-                       'serve_path', 'alive')
-
-
 class ContentManager(object):
-    COUNT = 100
+    """
+    This class provides methods to query content database for their properties
+    and methods to add, modify, delete those entries
+    """
+
+    DEFAULT_LIST_COUNT = 100
+    MAX_LIST_COUNT = 1000
+
+    VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive',
+                     'aired', 'serve_path')
+    MODIFY_TRIGGERS = ('path', 'size', 'category', 'expiration',
+                       'serve_path', 'alive')
 
     def __init__(self, config, db):
         self.root_path = os.path.abspath(config['registry.root_path'])
         self.db = db
 
     def exists(self, **kwargs):
-        content = self.get_file(alive=True, **kwargs)
+        """
+        Returns true if there exists atleast one content entry which is active
+        and satisfies the conditions specified by the keyword arguments.
+        """
+        filters = kwargs
+        filters['alive'] = True
+        content = self.get_file(**filters)
         return bool(content)
 
     def get_file(self, **kwargs):
-        files = get_content(self.db, count=1, **kwargs)
+        """
+        Returns the first file entry which satisfies the conditions
+        specified by the keyword arguments or None
+        """
+        filters = kwargs
+        filters['count'] = 1
+        self.validate_filters(filters)
+        files = get_content(self.db, **filters)
         if files:
-            return self.process_entry(files[0])
+            return self._process_entry(files[0])
 
-    def list_files(self, filters=None):
-        actual_filters = self.default_filters()
-        actual_filters.update(filters)
-        actual_filters = self.process_filters(actual_filters)
-        return map(self.process_entry,
-                   get_content(self.db, **actual_filters))
+    def list_files(self, **kwargs):
+        """
+        Returns a list of files which satisfy the conditions specified.
+        The list may be truncated to specific length if the number of files
+        are too large
+        """
+        filters = self.default_filters()
+        filters.update(kwargs or {})
+        filters = self.process_filters(filters)
+        return map(self._process_entry,
+                   get_content(self.db, **filters))
 
     def add_file(self, path, params):
+        """
+        Adds a new file entry. A `ContentException` is raised if the entry
+        conflicts with an existing entry or if `params` do not contain valid
+        data. On successful addition, the new file entry is returned.
+        """
         serve_path = params['serve_path']
         if self.exists(serve_path=serve_path):
             msg = 'File at serve_path {} already exists.'.format(serve_path)
@@ -61,6 +92,12 @@ class ContentManager(object):
         return self.get_file(id=id)
 
     def update_file(self, id, params):
+        """
+        Updates a file entry with the specified `id`. A `ContentException` is
+        raised if the entry conflicts with an existing entry or no entry with
+        the specified `id` exists. On successful update, the updated file
+        entry is returned.
+        """
         if not self.exists(id=id):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
@@ -69,27 +106,43 @@ class ContentManager(object):
         return self.get_file(id=id)
 
     def delete_file(self, id):
+        """
+        Deactivates a file entry with the specified `id`. A `ContentException`
+        is raised if no such entry exists. On successful deactivation, the
+        updated file entry is returned.
+        """
         if not self.exists(id=id):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
         self._delete_file(id)
         return self.get_file(id=id)
 
-    def process_entry(self, data):
+    def _process_entry(self, data):
         data['alive'] = bool(data['alive'])
         return data
 
     def process_filters(self, filters):
-        if 'path' in filters or 'since' in filters:
+        if 'serve_path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
                 del filters['count']
             except KeyError:
                 pass
+        # Ensure we never return move entries than `MAX_LIST_COUNT`
+        if 'count' in filters:
+            filters['count'] = min(filters['count'], self.MAX_LIST_COUNT)
+        # Ensure serve_path is a valid regex
+        if 'serve_path' in filters:
+            try:
+                re.compile(filters['serve_path'])
+            except re.error:
+                raise ContentException(
+                    'Invalid regular expression for serve_path: {}'.format(
+                        filters['serve_path']))
         return filters
 
     def default_filters(self):
-        return {'count': self.COUNT}
+        return {'count': self.DEFAULT_LIST_COUNT}
 
     def _add_file(self, path, data):
         data['alive'] = True
@@ -119,7 +172,7 @@ class ContentManager(object):
         if 'path' in data:
             path = data.get('path')
             data['size'] = os.path.getsize(path)
-        for key in MODIFY_TRIGGER_KEYS:
+        for key in self.MODIFY_TRIGGERS:
             if key in data:
                 data['modified'] = time.time()
                 break
@@ -134,3 +187,18 @@ class ContentManager(object):
         data['modified'] = time.time()
         logging.info('Setting file with id {} to dead'.format(id))
         update_content(self.db, data)
+
+    def validate_filters(self, filters):
+        for key in filters.keys():
+            if key not in self.VALID_FILTERS:
+                raise ContentException('Invalid filter: {}'.format(key))
+
+    def split_valid_filters(self, filters):
+        valid = {}
+        invalid = {}
+        for key, value in filters.items():
+            if key in self.VALID_FILTERS:
+                valid[key] = value
+            else:
+                invalid[key] = value
+        return valid, invalid
