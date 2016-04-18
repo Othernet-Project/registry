@@ -35,8 +35,8 @@ def bool_to_int(val):
     """
     if isinstance(val, basestring):
         return int(val.lower() in ('true', 'yes'))
-    elif isinstance(val, bool):
-        return int(val)
+    elif isinstance(val, (int, long)):
+        return val == 1
     else:
         return 0
 
@@ -126,6 +126,13 @@ class OneOrManyFilterBase(FilterBase):
         super(OneOrManyFilterBase, self).__init__(**kwargs)
         self.single_val = kwargs.get(self.single)
         self.multi_val = self.get_multi(kwargs.get(self.multi))
+        assert self.single_val or self.multi_val, \
+            'Atleast one of the keys {} or {} must be specified'.format(
+                self.single, self.multi)
+        assert not (self.single_val and self.multi_val), \
+            'Both keys {}, {} cannot be specified simultaneously'.format(
+                self.single, self.multi
+            )
 
     def get_clause(self):
         if self.multi_val:
@@ -144,7 +151,7 @@ class OneOrManyFilterBase(FilterBase):
         if isinstance(value, list):
             return value
         elif isinstance(value, basestring):
-            return [v.strip() for v in value.split(',')]
+            return [v.strip() for v in value.split(',') if v.strip()]
         return value
 
     @classmethod
