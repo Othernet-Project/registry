@@ -11,7 +11,7 @@ successful authentication.
 
 Clients are currently registered manually and are provided with a symmetric 
 encryption key. Clients should initiate authentication via ``POST /auth`` 
-endpoint, specifying``client_name``. The server uses a challenge-response 
+endpoint, specifying ``client_name``. The server uses a challenge-response 
 protocol for authentication and sends a plaintext message along with cipher
 details. The client should send back a encrypted version of the text, using
 the registered keyi, via ``POST /auth_verify``. If the server is able to 
