@@ -166,13 +166,6 @@ class IdFilter(OneOrManyFilterBase):
     multi = 'ids'
 
 
-class ServePathFilter(OneOrManyFilterBase):
-
-    KEY = 'serve_path'
-    single = 'serve_path'
-    multi = 'server_paths'
-
-
 class AliveFilter(OneOrManyFilterBase):
 
     KEY = 'alive'
@@ -192,11 +185,30 @@ class AiredFilter(OneOrManyFilterBase):
 
 
 class SinceFilter(OneOrManyFilterBase):
+
     KEY = 'modified'
     single = 'since'
 
     def get_clause(self):
         return '{} >= ?'.format(self.get_col(self.single))
+
+
+class ServePathFilter(FilterBase):
+
+    KEY = 'serve_path'
+
+    def __init__(self, **kwargs):
+        self.path_re = kwargs.get(self.KEY)
+
+    def get_clause(self):
+        return '{} REGEXP ?'.format(self.KEY)
+
+    def get_params(self):
+        return self.path_re
+
+    @classmethod
+    def can_apply(cls, **kwargs):
+        return cls.KEY in kwargs
 
 
 class CountFilter(FilterBase):

@@ -12,6 +12,7 @@ file that comes with the source code, or http://www.gnu.org/licenses/gpl.txt.
 from __future__ import unicode_literals
 
 
+import re
 import os
 import time
 import pprint
@@ -34,7 +35,7 @@ class ContentManager(object):
     MAX_LIST_COUNT = 1000
 
     VALID_FILTERS = ('id', 'path', 'since', 'count', 'category', 'alive',
-                     'aired')
+                     'aired', 'serve_path')
     MODIFY_TRIGGERS = ('path', 'size', 'category', 'expiration',
                        'serve_path', 'alive')
 
@@ -121,7 +122,7 @@ class ContentManager(object):
         return data
 
     def process_filters(self, filters):
-        if 'path' in filters or 'since' in filters:
+        if 'serve_path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
                 del filters['count']
@@ -130,6 +131,14 @@ class ContentManager(object):
         # Ensure we never return move entries than `MAX_LIST_COUNT`
         if 'count' in filters:
             filters['count'] = min(filters['count'], self.MAX_LIST_COUNT)
+        # Ensure serve_path is a valid regex
+        if 'serve_path' in filters:
+            try:
+                re.compile(filters['serve_path'])
+            except re.error:
+                raise ContentException(
+                    'Invalid regular expression for serve_path: {}'.format(
+                        filters['serve_path']))
         return filters
 
     def default_filters(self):

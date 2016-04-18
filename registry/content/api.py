@@ -48,9 +48,16 @@ def list_files():
     if invalid_params:
         params_str = ', '.join(['({} = {})'.format(k, v)
                                 for k, v in invalid_params.items()])
-        logging.debug('Ignoring unsupported parameters: {}'.format(params_str))
-    files = content_mgr.list_files(**valid_params)
-    return {'success': True, 'results': files, 'count': len(files)}
+        logging.debug('Ignoring unsupported parameters for list: {}'.format(
+            params_str))
+    try:
+        files = content_mgr.list_files(**valid_params)
+        return {'success': True, 'results': files, 'count': len(files)}
+    except ContentException as exc:
+        return {'success': False, 'error': str(exc)}
+    except Exception as exc:
+        logging.exception('Error while adding file: {}'.format(exc))
+        return {'success': False, 'error': 'Unknown Error'}
 
 
 def get_file(id):
