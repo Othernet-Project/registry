@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-routes.py: defines routes
+routes.py: content routes
 
 Copyright 2014-2016, Outernet Inc.
 Some rights reserved.
@@ -10,6 +10,7 @@ file that comes with the source code, or http://www.gnu.org/licenses/gpl.txt.
 """
 
 from __future__ import unicode_literals
+
 
 from .api import (add_file,
                   list_files,
