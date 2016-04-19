@@ -73,7 +73,7 @@ class ContentManager(object):
         """
         filters = self.default_filters()
         filters.update(kwargs or {})
-        filters = self.process_filters(filters)
+        filters = self.validate_list_filters(filters)
         return map(self._process_entry,
                    get_content(self.db, **filters))
 
@@ -121,14 +121,19 @@ class ContentManager(object):
         data['alive'] = bool(data['alive'])
         return data
 
-    def process_filters(self, filters):
+    def validate_list_filters(self, filters):
+        """
+        Validates filters used for listing file entries and returns a valid
+        copy of filters. Filters are specified as a dict.
+        """
+        filters = filters.copy()
         if 'serve_path' in filters or 'since' in filters:
             # Remove count filter if `path` or `since` filter are applicable
             try:
                 del filters['count']
             except KeyError:
                 pass
-        # Ensure we never return move entries than `MAX_LIST_COUNT`
+        # Ensure we return a maximum of `MAX_LIST_COUNT` entries
         if 'count' in filters:
             filters['count'] = min(filters['count'], self.MAX_LIST_COUNT)
         # Ensure serve_path is a valid regex
@@ -136,7 +141,7 @@ class ContentManager(object):
             try:
                 re.compile(filters['serve_path'])
             except re.error:
-                raise ContentException(
+                raise ValueError(
                     'Invalid regular expression for serve_path: {}'.format(
                         filters['serve_path']))
         return filters

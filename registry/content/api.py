@@ -53,7 +53,7 @@ def list_files():
     try:
         files = content_mgr.list_files(**valid_params)
         return {'success': True, 'results': files, 'count': len(files)}
-    except ContentException as exc:
+    except (ContentException, ValueError)`` as exc:
         return {'success': False, 'error': str(exc)}
     except Exception as exc:
         logging.exception('Error while adding file: {}'.format(exc))
