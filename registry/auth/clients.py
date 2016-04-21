@@ -14,8 +14,7 @@ from ..utils.databases import row_to_dict
 
 class ClientManager(object):
 
-    def __init__(self, config, db):
-        self.config = config
+    def __init__(self, db):
         self.db = db
 
     def get_client(self, name):

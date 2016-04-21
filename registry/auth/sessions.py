@@ -23,6 +23,13 @@ class SessionException(Exception):
     pass
 
 
+class TimedObject(dict):
+
+    def is_valid(self):
+        elapsed = time.time() - self['initiated']
+        return elapsed < self['duration']
+
+
 class SessionManager(object):
 
     CTEXT_LENGTH = 64  # characters
@@ -37,17 +44,17 @@ class SessionManager(object):
     handshakes = {}
     sessions = {}
 
-    def __init__(self, config, db):
-        self.config = config
+    def __init__(self, db):
         self.db = db
-        self.client_manager = ClientManager(config=config, db=db)
+        self.client_manager = ClientManager(db)
 
     def start_handshake(self, client_name):
         client = self.client_manager.get_client(client_name)
         if not client:
             raise SessionException('No such client \'{}\''.format(
                 client_name or ''))
-        return self.create_challenge(client)
+        handshake = self.create_handshake(client)
+        return self._strip_handshake(handshake)
 
     def complete_handshake(self, client_name, response):
         client = self.client_manager.get_client(client_name)
@@ -56,9 +63,10 @@ class SessionManager(object):
                 client_name or ''))
         verified = self._verify_response(client, response)
         if not verified:
-            raise SessionException('Challenge response failed')
+            raise SessionException('Handshake challenge response failed')
         duration = response.get('duration', self.DEFAULT_DURATION)
         session = self.create_session(client, duration)
+        self.invalidate_handshake(client_name, response['id'])
         return session['token'], session['duration']
 
     def verify_session(self, client_name, session_token):
@@ -68,47 +76,45 @@ class SessionManager(object):
         session = self.load_session(client_name, session_token)
         if not session:
             return False, 'No session found'
-        elapsed = time.time() - session['initiated']
-        if elapsed > session['duration']:
+        if not session.is_valid():
             return False, 'Session timedout'
-        return True, 'ok'
+        return True, 'Ok'
 
     def _verify_response(self, client, response):
         self._verify_response_params(response)
-        challenge = self.load_challenge(client, response['id'])
-        if not challenge:
-            raise SessionException('No matching challenge found for response')
-        elapsed = time.time() - challenge['initiated']
-        if elapsed > challenge['duration']:
+        handshake = self.load_handshake(client, response['id'])
+        if not handshake:
+            raise SessionException('No matching handshake found for response')
+        if not handshake.is_valid():
             raise SessionException('Handshake timedout')
-        cipher = challenge['cipher']
+        cipher = handshake['cipher']
         client_key = self.client_manager.get_client_keys(
             client['name']).get(cipher)
         if not client_key:
             raise SessionException(
                 'Client does not have a key for cipher: {}'.format(cipher))
-        return self.verify_ciphertext(challenge, response, client_key)
+        return self.verify_ciphertext(handshake, response, client_key)
 
     def _verify_response_params(self, response):
         for key in self.REQUIRED_RESPONSE_PARAMS:
             if key not in response:
-                msg = 'Response to auth challenge should contain {}'.format(
+                msg = 'Response to auth handshake should contain {}'.format(
                     ', '.join(self.REQUIRED_RESPONSE_PARAMS))
                 raise SessionException(msg)
 
-    def create_challenge(self, client):
-        challenge = {
+    def create_handshake(self, client):
+        handshake = TimedObject({
             'id': self.generate_cid(),
             'text': self.generate_ctext(),
             'duration': self.CDURATION,
             'client': client,
             'initiated': time.time(),
-        }
-        challenge.update(self.create_challenge_cipher())
-        self.store_challenge(client, challenge)
-        return challenge
+        })
+        handshake.update(self.create_handshake_cipher())
+        self.store_handshake(client, handshake)
+        return handshake
 
-    def create_challenge_cipher(self):
+    def create_handshake_cipher(self):
         return {
             'cipher': 'AES_CBC',
             'cipher_iv': aes_make_iv()
@@ -116,28 +122,31 @@ class SessionManager(object):
 
     def create_session(self, client, duration):
         duration = min(duration, self.MAX_DURATION)
-        session = {
+        session = TimedObject({
             'token': self.generate_session_token(),
             'client': client,
             'duration': duration,
             'initiated': time.time(),
-        }
+        })
         self.store_session(client, session)
         return session
 
-    def verify_ciphertext(self, challenge, response, key):
-        plaintext = challenge['text']
-        enc_iv = challenge['cipher_iv']
+    def verify_ciphertext(self, handshake, response, key):
+        plaintext = handshake['text']
+        enc_iv = handshake['cipher_iv']
         client_enc_text = response['encrypted_text']
         server_enc_text = aes_encrypt(plaintext, key, enc_iv)
         return client_enc_text == server_enc_text
 
-    def store_challenge(self, client, challenge):
-        cid = challenge['id']
-        self.handshakes[(client['name'], cid)] = challenge
+    def store_handshake(self, client, handshake):
+        cid = handshake['id']
+        self.handshakes[(client['name'], cid)] = handshake
 
-    def load_challenge(self, client, challenge_id):
-        return self.handshakes.get((client['name'], challenge_id))
+    def load_handshake(self, client, handshake_id):
+        return self.handshakes.get((client['name'], handshake_id))
+
+    def invaidate_handshake(self, client_name, handshake_id):
+        self.handshakes.pop((client_name, handshake_id), None)
 
     def generate_session_token(self):
         return uuid.uuid4().hex
@@ -156,8 +165,17 @@ class SessionManager(object):
         bytes = os.urandom(self.CTEXT_LENGTH / 2)
         return binascii.hexlify(bytes)
 
-    def _strip_challenge(self, challenge):
-        stripped_challenge = {}
-        for key in self.ALLOWED_CHALLENGE_KEYS:
-            stripped_challenge[key] = challenge[key]
-        return stripped_challenge
+    def cleanup(self):
+        for key, handshake in self.handshakes.items():
+            if not handshake.is_valid():
+                self.invalidate_handshake(key)
+
+        for key, session in self.sessions.items():
+            if not session.is_valid():
+                self.invalidate_session(key)
+
+    def _strip_handshake(self, handshake):
+        stripped_handshake = {}
+        for key in self.ALLOWED_handshake_KEYS:
+            stripped_handshake[key] = handshake[key]
+        return stripped_handshake

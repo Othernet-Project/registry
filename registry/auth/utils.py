@@ -19,9 +19,8 @@ from .sessions import SessionManager
 
 
 def get_session_manager():
-    config = request.app.config
     db = request.db.registry
-    return SessionManager(config=config, db=db)
+    return SessionManager(db)
 
 
 def check_auth(func):
