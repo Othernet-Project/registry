@@ -24,7 +24,9 @@ def cleanup(app, config):
 
     databases = config['database.connections']
     session_mgr = SessionManager(databases.registry)
-    session_mgr.cleanup()
-    logging.info('Timed out sessions and handshakes cleaned up')
+    count = session_mgr.cleanup()
+    if count:
+        logging.info('{} timed out sessions and handshakes cleaned up'.format(
+            count))
     next_cleanup = time.time() + config['auth.cleanup_interval']
     config['auth.next_cleanup'] = next_cleanup

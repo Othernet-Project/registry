@@ -17,6 +17,7 @@ CREATE TABLE client_keys
     cipher varchar not null,
     key blob not null,
 
+    unique(client_name, cipher),
     foreign key(client_name) references clients(name)
 );
 """

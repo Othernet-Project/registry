@@ -64,7 +64,7 @@ class SessionManager(object):
         verified = self._verify_response(client, response)
         if not verified:
             raise SessionException('Handshake challenge response failed')
-        duration = response.get('duration', self.DEFAULT_DURATION)
+        duration = int(response.get('duration', self.DEFAULT_DURATION))
         session = self.create_session(client, duration)
         self.invalidate_handshake(client_name, response['id'])
         return session['token'], session['duration']
@@ -145,8 +145,11 @@ class SessionManager(object):
     def load_handshake(self, client, handshake_id):
         return self.handshakes.get((client['name'], handshake_id))
 
-    def invaidate_handshake(self, client_name, handshake_id):
+    def invalidate_handshake(self, client_name, handshake_id):
         self.handshakes.pop((client_name, handshake_id), None)
+
+    def invalidate_session(self, client_name, session_token):
+        self.sessions.pop((client_name, session_token), None)
 
     def generate_session_token(self):
         return uuid.uuid4().hex
@@ -166,16 +169,20 @@ class SessionManager(object):
         return binascii.hexlify(bytes)
 
     def cleanup(self):
+        count = 0
         for key, handshake in self.handshakes.items():
             if not handshake.is_valid():
-                self.invalidate_handshake(key)
+                self.invalidate_handshake(*key)
+                count += 1
 
         for key, session in self.sessions.items():
             if not session.is_valid():
-                self.invalidate_session(key)
+                self.invalidate_session(*key)
+                count += 1
+        return count
 
     def _strip_handshake(self, handshake):
         stripped_handshake = {}
-        for key in self.ALLOWED_handshake_KEYS:
+        for key in self.ALLOWED_CHALLENGE_KEYS:
             stripped_handshake[key] = handshake[key]
         return stripped_handshake
