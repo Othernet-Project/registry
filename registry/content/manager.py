@@ -18,6 +18,7 @@ import time
 import pprint
 import logging
 
+from ..utils.databases import row_to_dict
 from .content import add_content, get_content, update_content
 
 
@@ -77,7 +78,7 @@ class ContentManager(object):
         return map(self._process_entry,
                    get_content(self.db, **filters))
 
-    def add_file(self, path, params):
+    def add_file(self, client, path, params):
         """
         Adds a new file entry. A `ContentException` is raised if the entry
         conflicts with an existing entry or if `params` do not contain valid
@@ -89,9 +90,11 @@ class ContentManager(object):
             raise ContentException(msg)
         self._validate_params(params)
         id = self._add_file(path, params)
+        self.record_action(file_id=id, client_name=client['name'],
+                           action='add')
         return self.get_file(id=id)
 
-    def update_file(self, id, params):
+    def update_file(self, client, id, params):
         """
         Updates a file entry with the specified `id`. A `ContentException` is
         raised if the entry conflicts with an existing entry or no entry with
@@ -103,9 +106,13 @@ class ContentManager(object):
             raise ContentException(msg)
         self._validate_params(params)
         self._update_file(id, params)
+        action_params = ', '.join(params.keys())
+        self.record_action(
+            file_id=id, client_name=client['name'], action='update',
+            action_params=action_params)
         return self.get_file(id=id)
 
-    def delete_file(self, id):
+    def delete_file(self, client, id):
         """
         Deactivates a file entry with the specified `id`. A `ContentException`
         is raised if no such entry exists. On successful deactivation, the
@@ -115,7 +122,8 @@ class ContentManager(object):
             msg = 'File with id {} does not exist.'.format(id)
             raise ContentException(msg)
         self._delete_file(id)
-        return self.get_file(id=id)
+        self.record_action(
+            file_id=id, client_name=client['name'], action='delete')
 
     def _process_entry(self, data):
         data['alive'] = bool(data['alive'])
@@ -193,6 +201,13 @@ class ContentManager(object):
         logging.info('Setting file with id {} to dead'.format(id))
         update_content(self.db, data)
 
+    def record_action(self, file_id, client_name, action, action_params='',
+                      timestamp=None):
+        timestamp = timestamp or time.time()
+        records = ActionRecords(self.db)
+        records.add_action(
+            file_id, client_name, action, action_params, timestamp)
+
     def validate_filters(self, filters):
         for key in filters.keys():
             if key not in self.VALID_FILTERS:
@@ -207,3 +222,32 @@ class ContentManager(object):
             else:
                 invalid[key] = value
         return valid, invalid
+
+
+class ActionRecords(object):
+
+    TABLE = 'history'
+
+    def __init__(self, db):
+        self.db = db
+
+    def get_actions(self, file_id):
+        query = self.db.Select('*', sets=self.TABLE, where='file_id = ?')
+        self.db.execute(query, (file_id,))
+        return [row_to_dict(row) for row in self.db.results]
+
+    def add_action(self, file_id, client_name, action, action_params,
+                   timestamp):
+        action_data = {
+            'file_id': file_id,
+            'client_name': client_name,
+            'action': action,
+            'action_params': action_params,
+            'timestamp': timestamp,
+        }
+        query = self.db.Insert(self.TABLE, cols=action_data.keys())
+        self.db.execute(query, action_data)
+
+    def clear_actions(self, file_id):
+        query = self.db.Delete(self.TABLE, where='file_id = ?')
+        self.db.execute(query, (file_id,))

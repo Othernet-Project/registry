@@ -41,12 +41,7 @@ def check_params(params, required_params):
 def list_files():
     content_mgr = get_manager()
     params = urldecode_params(request.query)
-    valid_params, invalid_params = content_mgr.split_valid_filters(params)
-    if invalid_params:
-        params_str = ', '.join(['({} = {})'.format(k, v)
-                                for k, v in invalid_params.items()])
-        logging.debug('Ignoring unsupported parameters for list: {}'.format(
-            params_str))
+    valid_params, _ = content_mgr.split_valid_filters(params)
     try:
         files = content_mgr.list_files(**valid_params)
         return {'success': True, 'results': files, 'count': len(files)}
@@ -75,9 +70,10 @@ def add_file():
     params = urldecode_params(request.forms)
     check_params(params, ADD_FILE_REQ_PARAMS)
     path = params.get('path')
+    client = request.session['client']
     content_mgr = get_manager()
     try:
-        result = content_mgr.add_file(path, params)
+        result = content_mgr.add_file(client, path, params)
         return {'success': True, 'results': [result]}
     except ContentException as exc:
         return {'success': False, 'error': str(exc)}
@@ -89,9 +85,10 @@ def add_file():
 @check_auth
 def update_file(id):
     params = urldecode_params(request.forms)
+    client = request.session['client']
     content_mgr = get_manager()
     try:
-        result = content_mgr.update_file(id, params)
+        result = content_mgr.update_file(client, id, params)
         return {'success': True, 'results': [result]}
     except ContentException as exc:
         return {'success': False, 'error': str(exc)}
@@ -102,9 +99,10 @@ def update_file(id):
 
 @check_auth
 def delete_file(id):
+    client = request.session['client']
     content_mgr = get_manager()
     try:
-        content_mgr.delete_file(id)
+        content_mgr.delete_file(client, id)
         return {'success': True}
     except ContentException as exc:
         return {'success': False, 'error': str(exc)}

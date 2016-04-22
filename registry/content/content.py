@@ -24,21 +24,6 @@ def process_content_data(data):
     return strip_extra(data, COLS)
 
 
-def generate_id(db):
-    return get_max_id(db) + 1
-
-
-def get_max_id(db):
-    query = db.Select(sets='content', what='MAX(id) as mid')
-    db.execute(query)
-    row = db.result
-    if row and 'mid' in row:
-        max_id = row['mid']
-    if not max_id:
-        max_id = 0
-    return max_id
-
-
 def strip_extra(data, valid_keys):
     stripped_data = {}
     for key in data.keys():
@@ -59,10 +44,10 @@ def get_content(db, filters):
 
 def add_content(db, data):
     data = process_content_data(data)
-    data['id'] = generate_id(db)
     query = db.Insert('content', cols=data.keys())
     db.execute(query, data)
-    return data['id']
+    db.execute('SELECT last_insert_rowid() as last_id;')
+    return db.result['last_id']
 
 
 def update_content(db, data):

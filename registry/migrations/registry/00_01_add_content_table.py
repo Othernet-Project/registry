@@ -2,7 +2,7 @@ SQL = """
 
 CREATE TABLE content
 (
-    id integer primary key not null,          -- unique identifier for a file
+    id integer primary key autoincrement,     -- unique identifier for a file
     path varchar not null,                    -- absolute path of file. can also be a url
     size integer not null default 0,          -- size in bytes
     uploaded timestamp not null,              -- timestamp when file was uploaded
