@@ -29,9 +29,10 @@ def check_auth(func):
         name = request.params.get('client_name')
         token = request.params.get('session_token')
         sessions = get_session_manager()
-        verified, msg = sessions.verify_session(name, token)
+        verified, session = sessions.verify_session(name, token)
         if verified:
+            request.session = session
             return func(*args, **kwargs)
         else:
-            raise abort(401, msg)
+            raise abort(401, session)
     return decorator

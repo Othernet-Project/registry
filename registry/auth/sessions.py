@@ -142,7 +142,7 @@ class SessionManager(object):
             return False, 'No session found'
         if not session.is_valid():
             return False, 'Session timedout'
-        return True, 'Ok'
+        return True, session
 
     def calculate_session_duration(self, handshake_response):
         requested_duration = int(
