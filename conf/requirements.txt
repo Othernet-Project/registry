@@ -1,4 +1,5 @@
 bottle
+bottle-utils
 confloader>=1.0
 gevent
 sqlize
