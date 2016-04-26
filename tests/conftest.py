@@ -77,7 +77,7 @@ def http_client():
 @pytest.fixture(scope='session')
 def database_config():
     return {
-        'path': 'tests/tmp',
+        'dbdir': 'tests/tmp',
         'databases': [
             {'name': 'registry',
              'migrations': 'registry.migrations.registry'}
@@ -103,7 +103,9 @@ def populated_databases(databases):
 def server(populated_databases):
     testargv = ['/usr/bin/env', 'python', '--conf',
                 os.path.join(DATADIR, 'test-config.ini')]
-    with mock.patch.object(sys, 'argv', testargv), mock.patch('registry.utils.databases.init_databases', lambda *args, **kwargs: populated_databases):
+    with mock.patch.object(sys, 'argv', testargv), \
+        mock.patch('registry.utils.databases.init_databases',
+                   lambda *args, **kwargs: populated_databases):
         server = TestServer()
         try:
             yield server.start
