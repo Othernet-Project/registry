@@ -2,6 +2,7 @@
 Registry API
 ************
 
+.. contents::
 
 Auth
 ====
