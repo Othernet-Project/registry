@@ -20,12 +20,26 @@ from .crypto import aes_make_iv, aes_encrypt
 
 
 class SessionException(Exception):
+    """
+    This is an all encompassing exception raised by :py:class:`SessionManager`
+    """
     pass
 
 
 class TimedObject(dict):
+    """
+    This is a wrapper class for `dict` objects, which provides a simple check
+    for expiration based on the presence of `initiated` and `duration` keys.
+    """
 
     def is_valid(self):
+        """
+        Checks if the object data is valid based on `initiated` and `duration`
+        keys.
+        If the keys are present, it returns if current time is in the range
+        [initiated, initiated + duration]. If they keys are not present,
+        returns `True`.
+        """
         if 'initiated' in self and 'duration' in self:
             elapsed = time.time() - self['initiated']
             return 0 <= elapsed <= self['duration']
@@ -33,7 +47,10 @@ class TimedObject(dict):
 
 
 class SessionManager(object):
-
+    """
+    This class is responsible for maintaining client sessions and handling
+    client authentication challenge-response flow
+    """
     HANDSHAKE_TEXT_LENGTH = 64  # characters
     HANDSHAKE_DURATION = 30  # seconds
     HANDSHAKE_CIPHER = 'AES_CBC'
@@ -52,6 +69,11 @@ class SessionManager(object):
         self.client_manager = ClientManager(db)
 
     def start_handshake(self, client_name):
+        """
+        Initiates handshake challenge-response state for client
+        ``client_name`` and returns a dict with the challenge parameters. A
+        :py:exc:`SessionException` is raised if the client does not exist.
+        """
         client = self.client_manager.get_client(client_name)
         if not client:
             raise SessionException('No such client \'{}\''.format(
@@ -60,6 +82,12 @@ class SessionManager(object):
         return self.strip_handshake(handshake)
 
     def complete_handshake(self, client_name, response):
+        """
+        Completes a handshake by verifying the response for a client
+        authentication challenge, returning a newly created session token and
+        the session duration. A :py:exc:`SessionException` is raised if the
+        client does not exist or if the response fails verification.
+        """
         client = self.client_manager.get_client(client_name)
         if not client:
             raise SessionException('No such client \'{}\''.format(
@@ -72,6 +100,10 @@ class SessionManager(object):
         return session['token'], session['duration']
 
     def create_handshake(self, client):
+        """
+        Creates and stores a new handshake object for client ``client``,
+        populating it with challenge parameters.
+        """
         handshake = TimedObject({
             'id': self.generate_handshake_id(),
             'text': self.generate_handshake_text(),
@@ -85,6 +117,10 @@ class SessionManager(object):
         return handshake
 
     def validate_handshake_response(self, client, response):
+        """
+        Validates a handshake response for client ``client``, raising
+        :py:exec:`SessionException` for invalid or timed out responses.
+        """
         self.validate_handshake_response_params(response)
         handshake = self.load_handshake(client, response['id'])
         if not handshake:
