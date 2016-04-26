@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-app.py: main module
+application.py: defines Application class
 
 Copyright 2014-2016, Outernet Inc.
 Some rights reserved.
@@ -24,6 +24,12 @@ from .utils.logs import configure_logging
 from .utils.system import on_interrupt
 
 
+def import_obj(name):
+    mod, obj = name.rsplit('.', 1)
+    mod = importlib.import_module(mod)
+    return getattr(mod, obj)
+
+
 class Application(object):
     DEFAULT_CONFIG_FILENAME = 'config.ini'
     CONFIG_DEFAULTS = {
@@ -40,7 +46,7 @@ class Application(object):
         self.stop_hooks = []
 
         # Configure the application
-        self._configure(root_dir)
+        self.configure(root_dir)
 
         # Register application hooks
         self.pre_init(self.config['stack.pre_init'])
@@ -52,7 +58,7 @@ class Application(object):
         # Register interrupt handler
         on_interrupt(self.stop)
 
-    def _configure(self, root_dir):
+    def configure(self, root_dir):
         default_path = os.path.join(root_dir, self.DEFAULT_CONFIG_FILENAME)
         self.config_path = get_config_path(default=default_path)
         config = ConfDict.from_file(self.config_path,
@@ -63,29 +69,29 @@ class Application(object):
 
     def pre_init(self, pre_init):
         for hook in pre_init:
-            hook = self._import(hook)
-            hook(self.config)
+            hook = import_obj(hook)
+            hook(self.app, self.config)
 
     def add_plugins(self, plugins):
         for plugin in plugins:
-            plugin = self._import(plugin)
+            plugin = import_obj(plugin)
             self.app.install(plugin(self.config))
 
     def add_routes(self, routing):
-        for route in routing:
-            route = self._import(route)
-            for r in route(self.config):
-                path, method, cb, name, kw = r
-                self.app.route(path, method, cb, name=name, **kw)
+        for routes in routing:
+            routes = import_obj(routes)
+            for route in routes(self.config):
+                (name, handler, method, path, kwargs) = route
+                self.app.route(path, method, handler, name=name, **kwargs)
 
     def add_background(self, background_calls):
         for hook in background_calls:
-            hook = self._import(hook)
+            hook = import_obj(hook)
             self.background_hooks.append(hook)
 
     def add_stop_hooks(self, pre_stop):
         for hook in pre_stop:
-            hook = self._import(hook)
+            hook = import_obj(hook)
             self.stop_hooks.append(hook)
 
     def start(self):
@@ -93,17 +99,16 @@ class Application(object):
         port = self.config['server.port']
         self.server = pywsgi.WSGIServer((host, port), self.app, log=None)
         self.server.start()
-        assert self.server.started, 'Expected server to be running'
         logging.info('Started server on http://{host}:{port}'.format(
             host=host, port=port))
-        self._init_background()
+        self._loop_background()
 
-    def _init_background(self):
+    def _loop_background(self):
         while True:
             gevent.sleep(self.LOOP_INTERVAL)
             for hook in self.background_hooks:
                 try:
-                    hook(self.app)
+                    hook(self.app, self.config)
                 except:
                     logging.exception('Error while running background hook')
 
@@ -116,9 +121,3 @@ class Application(object):
                 hook(self.app)
             except:
                 logging.exception('Error while running pre-stop hook')
-
-    @staticmethod
-    def _import(name):
-        mod, obj = name.rsplit('.', 1)
-        mod = importlib.import_module(mod)
-        return getattr(mod, obj)
