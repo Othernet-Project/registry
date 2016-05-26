@@ -131,6 +131,13 @@ If the API call fails, the resultant object will be of the form
 Content
 =======
 
+All content API endpoints require the client to have authenticated themselves. 
+For each request the client is required to send along the client name and 
+session token as ``client_name`` and ``session_token`` respectively. If the 
+parameters are not present or if the session is invalid or has timed out, 
+a 401 HTTP response is sent back.
+
+
 GET /
 ^^^^^
 
