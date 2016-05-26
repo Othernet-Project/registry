@@ -166,14 +166,11 @@ class SessionManager(object):
             'duration': duration,
             'initiated': time.time(),
         })
-        self._store_session(client, session)
+        self._store_session(session)
         return session
 
-    def verify_session(self, client_name, session_token):
-        client = self.client_manager.get_client(client_name)
-        if not client:
-            return False, 'No such client'
-        session = self._load_session(client_name, session_token)
+    def verify_session(self, session_token):
+        session = self._load_session(session_token)
         if not session:
             return False, 'No session found'
         if not session.is_valid():
@@ -186,15 +183,15 @@ class SessionManager(object):
         duration = min(requested_duration, self.SESSION_MAX_DURATION)
         return duration
 
-    def invalidate_session(self, client_name, session_token):
-        self.sessions.pop((client_name, session_token), None)
+    def invalidate_session(self, session_token):
+        self.sessions.pop(session_token, None)
 
-    def _store_session(self, client, session):
+    def _store_session(self, session):
         token = session['token']
-        self.sessions[(client['name'], token)] = session
+        self.sessions[token] = session
 
-    def _load_session(self, client_name, token):
-        return self.sessions.get((client_name, token))
+    def _load_session(self, token):
+        return self.sessions.get(token)
 
     def generate_session_token(self):
         return uuid.uuid4().hex
@@ -215,7 +212,7 @@ class SessionManager(object):
 
         for key, session in self.sessions.items():
             if not session.is_valid():
-                self.invalidate_session(*key)
+                self.invalidate_session(key)
                 count += 1
         return count
 

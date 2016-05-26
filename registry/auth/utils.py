@@ -26,10 +26,9 @@ def get_session_manager():
 def check_auth(func):
     @functools.wraps(func)
     def decorator(*args, **kwargs):
-        name = request.params.get('client_name')
         token = request.params.get('session_token')
         sessions = get_session_manager()
-        verified, session = sessions.verify_session(name, token)
+        verified, session = sessions.verify_session(token)
         if verified:
             request.session = session
             return func(*args, **kwargs)
