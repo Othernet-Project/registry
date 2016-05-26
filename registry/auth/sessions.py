@@ -170,6 +170,12 @@ class SessionManager(object):
         return session
 
     def verify_session(self, session_token):
+        """
+        Returns a tuple, with the first member as `True` and the second member
+        as the session if a valid session exists for `session_token`. Else a
+        tuple with the first member as `False` and the second member as the
+        failure reason is returned.
+        """
         session = self._load_session(session_token)
         if not session:
             return False, 'No session found'
@@ -184,6 +190,7 @@ class SessionManager(object):
         return duration
 
     def invalidate_session(self, session_token):
+        """ Invalidates the session with the token `session_token`. """
         self.sessions.pop(session_token, None)
 
     def _store_session(self, session):
