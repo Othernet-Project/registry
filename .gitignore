@@ -3,3 +3,7 @@
 /dist
 /*.egg-info
 local.ini
+tmp/
+# tox
+.tox/
+.cache/
